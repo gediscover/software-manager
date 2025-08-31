@@ -5,10 +5,10 @@
 #include <QThread>
 #include <QStringList>
 #include <QList>
-#include <QFileInfo>
+#include <QIcon>
 #include "../model/SoftwareItem.hpp"
 
-class SoftwareItem;
+// 前向声明
 class ScanWorker;
 
 class SoftwareScanner : public QObject {
@@ -32,6 +32,9 @@ public:
     // 手动添加
     SoftwareItem createSoftwareItem(const QString& filePath);
     
+    // 用于测试的公共方法
+    bool isValidExecutablePath(const QString& path) const;
+    
 signals:
     void scanStarted();
     void scanProgress(int progress);
@@ -48,7 +51,6 @@ private:
     // 私有方法
     void setupDefaultPaths();
     QStringList getDefaultScanPaths() const;
-    bool isValidExecutablePath(const QString& path) const;
 };
 
 // 工作线程类

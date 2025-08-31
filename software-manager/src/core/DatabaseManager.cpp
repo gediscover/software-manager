@@ -9,8 +9,8 @@
 #include <QLoggingCategory>
 #include <QFile>
 #include <QSaveFile>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include <QUuid>
+#include "../utils/Logging.hpp"
 
 DatabaseManager::DatabaseManager(QObject* parent)
     : QObject(parent)
@@ -150,12 +150,18 @@ QList<SoftwareItem> DatabaseManager::getAllSoftwareItems()
     }
     
     while (query.next()) {
-        SoftwareItem item;
-        // 注意：这里需要使用反射或其他方式设置私有成员，或者修改SoftwareItem类
-        // 暂时创建一个新的构造函数来处理数据库数据
+        // 从查询结果创建软件项对象
+        QString id = query.value(0).toString();
+        QString name = query.value(1).toString();
+        QString filePath = query.value(2).toString();
+        QString category = query.value(3).toString();
+        QString description = query.value(4).toString();
+        QString version = query.value(5).toString();
+        QDateTime createdAt = QDateTime::fromString(query.value(6).toString(), Qt::ISODate);
+        QDateTime updatedAt = QDateTime::fromString(query.value(7).toString(), Qt::ISODate);
         
-        // 这里简化处理，实际需要从查询结果创建SoftwareItem对象
-        // items.append(item);
+        SoftwareItem item(id, name, filePath, category, description, version, createdAt, updatedAt);
+        items.append(item);
     }
     
     qCInfo(softwareManager) << "查询到" << items.size() << "个软件项";
@@ -182,8 +188,18 @@ QList<SoftwareItem> DatabaseManager::getSoftwareItemsByCategory(const QString& c
     }
     
     while (query.next()) {
-        // 创建软件项对象
-        // items.append(item);
+        // 从查询结果创建软件项对象
+        QString id = query.value(0).toString();
+        QString name = query.value(1).toString();
+        QString filePath = query.value(2).toString();
+        QString itemCategory = query.value(3).toString();
+        QString description = query.value(4).toString();
+        QString version = query.value(5).toString();
+        QDateTime createdAt = QDateTime::fromString(query.value(6).toString(), Qt::ISODate);
+        QDateTime updatedAt = QDateTime::fromString(query.value(7).toString(), Qt::ISODate);
+        
+        SoftwareItem item(id, name, filePath, itemCategory, description, version, createdAt, updatedAt);
+        items.append(item);
     }
     
     qCInfo(softwareManager) << "分类" << category << "下查询到" << items.size() << "个软件项";
@@ -210,8 +226,17 @@ SoftwareItem DatabaseManager::getSoftwareItemById(const QString& id)
     }
     
     if (query.next()) {
-        // 创建软件项对象
-        // item = SoftwareItem(...);
+        // 从查询结果创建软件项对象
+        QString itemId = query.value(0).toString();
+        QString name = query.value(1).toString();
+        QString filePath = query.value(2).toString();
+        QString category = query.value(3).toString();
+        QString description = query.value(4).toString();
+        QString version = query.value(5).toString();
+        QDateTime createdAt = QDateTime::fromString(query.value(6).toString(), Qt::ISODate);
+        QDateTime updatedAt = QDateTime::fromString(query.value(7).toString(), Qt::ISODate);
+        
+        item = SoftwareItem(itemId, name, filePath, category, description, version, createdAt, updatedAt);
     }
     
     return item;

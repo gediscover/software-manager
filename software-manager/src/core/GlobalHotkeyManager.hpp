@@ -5,7 +5,9 @@
 #include <QKeySequence>
 #include <QMap>
 
-class QHotkey;
+// 包含QHotkey头文件
+#include "../qhotkey/qhotkey.h"
+
 class MainWindow;
 
 class GlobalHotkeyManager : public QObject {

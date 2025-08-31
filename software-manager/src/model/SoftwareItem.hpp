@@ -13,6 +13,12 @@ public:
     SoftwareItem();
     explicit SoftwareItem(const QString& filePath);
     
+    // 从数据库记录创建对象的构造函数
+    SoftwareItem(const QString& id, const QString& name, const QString& filePath, 
+                 const QString& category, const QString& description, 
+                 const QString& version, const QDateTime& createdAt, 
+                 const QDateTime& updatedAt);
+    
     // Getter方法
     QString getId() const;
     QString getName() const;
@@ -34,6 +40,10 @@ public:
     // 功能方法
     bool isValid() const;
     void updateTimestamp();
+    
+    // 数据库序列化方法
+    QVariantMap toVariantMap() const;
+    static SoftwareItem fromVariantMap(const QVariantMap& map);
     
 private:
     QString m_id;

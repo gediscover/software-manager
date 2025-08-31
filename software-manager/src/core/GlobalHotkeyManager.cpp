@@ -1,12 +1,9 @@
 #include "GlobalHotkeyManager.hpp"
 #include "ui/MainWindow.hpp"
 #include <QSettings>
+#include <QApplication>
 #include "../utils/Logging.hpp"
-
-// 注意：这里需要QHotkey库支持
-// 由于QHotkey是一个第三方库，我们需要在项目中集成它
-// 暂时使用前向声明，实际使用时需要包含QHotkey头文件
-class QHotkey;
+#include "../qhotkey/qhotkey.h"
 
 GlobalHotkeyManager::GlobalHotkeyManager(MainWindow* parent)
     : QObject(parent)
@@ -23,39 +20,68 @@ GlobalHotkeyManager::~GlobalHotkeyManager()
 
 bool GlobalHotkeyManager::registerHotkey(const QKeySequence& sequence, const QString& name)
 {
-    // 这里需要QHotkey库的实际实现
-    // 暂时返回true表示成功
-    Q_UNUSED(sequence)
-    Q_UNUSED(name)
+    // 检查是否已注册同名快捷键
+    if (m_hotkeys.contains(name)) {
+        unregisterHotkey(name);
+    }
     
-    emit hotkeyRegistered(name);
-    return true;
+    // 创建QHotkey对象
+    QHotkey* hotkey = new QHotkey(sequence, true, this);
+    
+    if (hotkey->isRegistered()) {
+        // 连接信号槽
+        if (name == "show_window") {
+            connect(hotkey, &QHotkey::activated, this, &GlobalHotkeyManager::onShowWindowHotkeyPressed);
+        } else if (name == "search") {
+            connect(hotkey, &QHotkey::activated, this, &GlobalHotkeyManager::onSearchHotkeyPressed);
+        } else if (name == "quit") {
+            connect(hotkey, &QHotkey::activated, this, &GlobalHotkeyManager::onQuitHotkeyPressed);
+        } else if (name == "scan") {
+            connect(hotkey, &QHotkey::activated, this, &GlobalHotkeyManager::onScanHotkeyPressed);
+        }
+        
+        // 存储快捷键对象
+        m_hotkeys[name] = hotkey;
+        
+        emit hotkeyRegistered(name);
+        qCInfo(softwareManager) << "成功注册快捷键:" << name << "序列:" << sequence.toString();
+        return true;
+    } else {
+        delete hotkey;
+        qCWarning(softwareManager) << "注册快捷键失败:" << name << "序列:" << sequence.toString();
+        return false;
+    }
 }
 
 void GlobalHotkeyManager::unregisterHotkey(const QString& name)
 {
-    // 这里需要QHotkey库的实际实现
-    Q_UNUSED(name)
-    
-    emit hotkeyUnregistered(name);
+    if (m_hotkeys.contains(name)) {
+        QHotkey* hotkey = m_hotkeys[name];
+        hotkey->deleteLater();
+        m_hotkeys.remove(name);
+        emit hotkeyUnregistered(name);
+        qCInfo(softwareManager) << "注销快捷键:" << name;
+    }
 }
 
 void GlobalHotkeyManager::setHotkeyEnabled(const QString& name, bool enabled)
 {
-    // 这里需要QHotkey库的实际实现
-    Q_UNUSED(name)
-    Q_UNUSED(enabled)
+    if (m_hotkeys.contains(name)) {
+        m_hotkeys[name]->setRegistered(enabled);
+    }
 }
 
 bool GlobalHotkeyManager::isHotkeyRegistered(const QString& name) const
 {
-    return m_hotkeys.contains(name);
+    return m_hotkeys.contains(name) && m_hotkeys[name]->isRegistered();
 }
 
 QMap<QString, QKeySequence> GlobalHotkeyManager::getRegisteredHotkeys() const
 {
     QMap<QString, QKeySequence> hotkeys;
-    // 这里需要返回实际注册的快捷键
+    for (auto it = m_hotkeys.constBegin(); it != m_hotkeys.constEnd(); ++it) {
+        hotkeys[it.key()] = it.value()->shortcut();
+    }
     return hotkeys;
 }
 
@@ -76,15 +102,32 @@ void GlobalHotkeyManager::unregisterAllHotkeys()
 void GlobalHotkeyManager::loadHotkeySettings()
 {
     QSettings settings;
+    settings.beginGroup("Hotkeys");
+    
     // 加载快捷键设置
-    // 实际实现需要从配置文件读取快捷键设置
+    QStringList keys = settings.childKeys();
+    for (const QString& key : keys) {
+        QString sequenceStr = settings.value(key).toString();
+        if (!sequenceStr.isEmpty()) {
+            QKeySequence sequence(sequenceStr);
+            registerHotkey(sequence, key);
+        }
+    }
+    
+    settings.endGroup();
 }
 
 void GlobalHotkeyManager::saveHotkeySettings()
 {
     QSettings settings;
+    settings.beginGroup("Hotkeys");
+    
     // 保存快捷键设置
-    // 实际实现需要将快捷键设置保存到配置文件
+    for (auto it = m_hotkeys.constBegin(); it != m_hotkeys.constEnd(); ++it) {
+        settings.setValue(it.key(), it.value()->shortcut().toString());
+    }
+    
+    settings.endGroup();
 }
 
 void GlobalHotkeyManager::onShowWindowHotkeyPressed()
@@ -93,7 +136,13 @@ void GlobalHotkeyManager::onShowWindowHotkeyPressed()
     
     if (m_mainWindow) {
         // 显示/隐藏主窗口
-        // m_mainWindow->toggleVisibility();
+        if (m_mainWindow->isVisible()) {
+            m_mainWindow->hide();
+        } else {
+            m_mainWindow->show();
+            m_mainWindow->raise();
+            m_mainWindow->activateWindow();
+        }
     }
 }
 
@@ -103,6 +152,7 @@ void GlobalHotkeyManager::onSearchHotkeyPressed()
     
     if (m_mainWindow) {
         // 激活搜索功能
+        // 这里需要MainWindow提供相应的公共方法
         // m_mainWindow->showSearchDialog();
     }
 }
@@ -112,7 +162,7 @@ void GlobalHotkeyManager::onQuitHotkeyPressed()
     emit hotkeyPressed("quit");
     
     // 退出应用程序
-    // qApp->quit();
+    qApp->quit();
 }
 
 void GlobalHotkeyManager::onScanHotkeyPressed()
@@ -129,16 +179,16 @@ void GlobalHotkeyManager::setupDefaultHotkeys()
 {
     // 注册默认快捷键
     // Ctrl+W: 显示/隐藏主窗口
-    // registerHotkey(QKeySequence("Ctrl+W"), "show_window");
+    registerHotkey(QKeySequence("Ctrl+W"), "show_window");
     
     // Ctrl+Shift+F: 搜索
-    // registerHotkey(QKeySequence("Ctrl+Shift+F"), "search");
+    registerHotkey(QKeySequence("Ctrl+Shift+F"), "search");
     
     // Ctrl+Q: 退出
-    // registerHotkey(QKeySequence("Ctrl+Q"), "quit");
+    registerHotkey(QKeySequence("Ctrl+Q"), "quit");
     
     // Ctrl+R: 重新扫描
-    // registerHotkey(QKeySequence("Ctrl+R"), "scan");
+    registerHotkey(QKeySequence("Ctrl+R"), "scan");
     
     qCInfo(softwareManager) << "默认快捷键设置完成";
 }

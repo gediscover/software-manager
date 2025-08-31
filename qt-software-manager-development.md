@@ -38,7 +38,7 @@ Qt 软件管家通过整合系统中分散的软件快捷方式，为用户提�
 QHotkey是一个用于注册全局热键的Qt库，支持Windows、macOS和Linux平台。该库提供了简单易用的API来注册和管理全局快捷键，是实现Ctrl+W等全局快捷键功能的关键组件。
 
 #### 集成步骤：
-1. 通过Git子模块或直接下载方式将QHotkey库添加到项目中
+1. 通过Git子模块将QHotkey库添加到项目中
 2. 在CMakeLists.txt中配置QHotkey库的编译和链接
 3. 在GlobalHotkeyManager中使用QHotkey类注册和管理快捷键
 
@@ -127,6 +127,8 @@ classDiagram
         - QIcon icon
         - QString description
         - QString version
+        - QDateTime created_at
+        - QDateTime updated_at
         + SoftwareItem()
         + SoftwareItem(QString filePath)
         + getId() QString
@@ -136,11 +138,17 @@ classDiagram
         + getIcon() QIcon
         + getDescription() QString
         + getVersion() QString
+        + getCreatedAt() QDateTime
+        + getUpdatedAt() QDateTime
         + setName(QString name)
         + setCategory(QString category)
         + setDescription(QString description)
         + setVersion(QString version)
+        + setIcon(QIcon icon)
         + isValid() bool
+        + updateTimestamp()
+        + toVariantMap() QVariantMap
+        + fromVariantMap(QVariantMap map)
     }
 ```
 
@@ -169,6 +177,12 @@ public:
     SoftwareItem();
     explicit SoftwareItem(const QString& filePath);
     
+    // 从数据库记录创建对象的构造函数
+    SoftwareItem(const QString& id, const QString& name, const QString& filePath, 
+                 const QString& category, const QString& description, 
+                 const QString& version, const QDateTime& createdAt, 
+                 const QDateTime& updatedAt);
+    
     // Getter方法
     QString getId() const;
     QString getName() const;
@@ -190,6 +204,10 @@ public:
     // 功能方法
     bool isValid() const;
     void updateTimestamp();
+    
+    // 数据库序列化方法
+    QVariantMap toVariantMap() const;
+    static SoftwareItem fromVariantMap(const QVariantMap& map);
     
 private:
     QString m_id;
@@ -632,6 +650,8 @@ classDiagram
         - SystemTrayManager* trayManager
         - GlobalHotkeyManager* hotkeyManager
         - SearchDialog* searchDialog
+        - SettingsDialog* settingsDialog
+        - DatabaseManager* databaseManager
         + MainWindow()
         + setupUI()
         + setupConnections()
@@ -639,6 +659,8 @@ classDiagram
         + switchToListView()
         + updateStatusBar(QString message)
         + showProgress(int value)
+        + showSearchDialog()
+        + scanSystemSoftware()
         + showSearchDialog()
     }
     
@@ -685,6 +707,8 @@ class CategoryManager;
 class SystemTrayManager;
 class GlobalHotkeyManager;
 class SearchDialog;
+class SettingsDialog;
+class DatabaseManager;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -715,6 +739,10 @@ private slots:
     // 扫描完成事件
     void onScanFinished(const QList<SoftwareItem>& items);
     
+    // 软件项事件
+    void onSoftwareItemLaunched(const QString& softwareId);
+    void onSoftwareItemRemoved(const QString& softwareId);
+    
 private:
     // UI组件
     SidebarWidget* m_sidebar;
@@ -729,9 +757,11 @@ private:
     CategoryManager* m_categoryManager;
     SystemTrayManager* m_trayManager;
     GlobalHotkeyManager* m_hotkeyManager;
+    DatabaseManager* m_databaseManager;
     
     // 对话框
     SearchDialog* m_searchDialog;
+    SettingsDialog* m_settingsDialog;
     
     // 私有方法
     void setupUI();
@@ -741,6 +771,16 @@ private:
     void loadSettings();
     void saveSettings();
     void updateSoftwareList(const QString& category = QString());
+    
+    // 软件管理方法
+    void addSoftwareManually();
+    void launchSoftware(const QString& softwareId);
+    void removeSoftware(const QString& softwareId);
+    
+public:
+    // 公共方法供其他组件调用
+    void showSearchDialog();
+    void scanSystemSoftware();
 };
 
 #endif // MAINWINDOW_H
@@ -846,7 +886,9 @@ QtSoftwareManager/
 │   │   ├── SystemTrayManager.hpp
 │   │   ├── SystemTrayManager.cpp
 │   │   ├── GlobalHotkeyManager.hpp
-│   │   └── GlobalHotkeyManager.cpp
+│   │   ├── GlobalHotkeyManager.cpp
+│   │   ├── DatabaseManager.hpp
+│   │   └── DatabaseManager.cpp
 │   ├── model/
 │   │   ├── SoftwareItem.hpp
 │   │   └── SoftwareItem.cpp
@@ -859,11 +901,17 @@ QtSoftwareManager/
 │   │   ├── SoftwareGridView.cpp
 │   │   ├── SoftwareListView.hpp
 │   │   ├── SoftwareListView.cpp
+│   │   ├── SoftwareItemWidget.hpp
+│   │   ├── SoftwareItemWidget.cpp
 │   │   ├── SearchDialog.hpp
-│   │   └── SearchDialog.cpp
+│   │   ├── SearchDialog.cpp
+│   │   ├── SettingsDialog.hpp
+│   │   └── SettingsDialog.cpp
 │   └── utils/
 │       ├── IconExtractor.hpp
-│       └── IconExtractor.cpp
+│       ├── IconExtractor.cpp
+│       ├── Logging.hpp
+│       └── Logging.cpp
 ├── resources/
 │   ├── Resources.qrc
 │   ├── icons/
@@ -873,7 +921,8 @@ QtSoftwareManager/
 └── tests/
     ├── TestSoftwareItem.cpp
     ├── TestCategoryManager.cpp
-    └── TestSoftwareScanner.cpp
+    ├── TestSoftwareScanner.cpp
+    └── TestDatabaseManager.cpp
 ```
 
 ### 6.1 目录结构说明
@@ -904,32 +953,35 @@ QtSoftwareManager/
 ## 7. 验收标准
 
 ### 7.1 功能完整性
-- [ ] 应用程序成功编译并运行
-- [ ] 启动后能自动扫描并显示系统快捷方式
-- [ ] 可以成功通过点击启动软件
-- [ ] 可以创建新分类并将软件拖拽至新分类中
-- [ ] 视图能正确根据左侧选中的分类进行过滤
-- [ ] 重启应用程序后，自定义分类和软件分配关系得以保留
-- [ ] 支持手动添加软件快捷方式
-- [ ] 支持右键菜单功能（打开、打开文件位置、属性等）
+- [x] 应用程序成功编译并运行
+- [x] 启动后能自动扫描并显示系统快捷方式
+- [x] 可以成功通过点击启动软件
+- [x] 可以创建新分类并将软件拖拽至新分类中
+- [x] 视图能正确根据左侧选中的分类进行过滤
+- [x] 重启应用程序后，自定义分类和软件分配关系得以保留
+- [x] 支持手动添加软件快捷方式
+- [x] 支持右键菜单功能（打开、打开文件位置、属性等）
+- [x] 支持全局快捷键功能
+- [x] 支持系统托盘功能
+- [x] 支持搜索功能
 
 ### 7.2 代码质量
-- [ ] 代码结构清晰，模块化程度高
-- [ ] 注释充分，符合Qt编码规范
-- [ ] 使用现代C++和Qt 6.9特性
-- [ ] 处理常见异常情况（文件不存在、权限不足等）
-- [ ] 遵循RAII原则，正确管理资源
-- [ ] 使用智能指针管理动态内存
+- [x] 代码结构清晰，模块化程度高
+- [x] 注释充分，符合Qt编码规范
+- [x] 使用现代C++和Qt 6.9特性
+- [x] 处理常见异常情况（文件不存在、权限不足等）
+- [x] 遵循RAII原则，正确管理资源
+- [x] 使用智能指针管理动态内存
 
 ### 7.3 用户体验
-- [ ] 界面布局合理，美观简洁
-- [ ] 操作反馈及时
-- [ ] 启动软件时鼠标指针变为忙碌状态
-- [ ] 扫描过程显示进度指示
-- [ ] 支持键盘快捷键操作
-- [ ] 支持全局快捷键（Ctrl+W快速启动）
-- [ ] 支持系统托盘最小化运行
-- [ ] 支持托盘图标双击显示主窗口
+- [x] 界面布局合理，美观简洁
+- [x] 操作反馈及时
+- [x] 启动软件时鼠标指针变为忙碌状态
+- [x] 扫描过程显示进度指示
+- [x] 支持键盘快捷键操作
+- [x] 支持全局快捷键（Ctrl+W快速启动）
+- [x] 支持系统托盘最小化运行
+- [x] 支持托盘图标双击显示主窗口
 
 ## 8. 数据库设计
 
@@ -943,7 +995,7 @@ QtSoftwareManager/
 | id | TEXT | PRIMARY KEY | UUID唯一标识符 |
 | name | TEXT | NOT NULL | 软件名称 |
 | file_path | TEXT | NOT NULL | 可执行文件路径 |
-| icon_data | BLOB |  | 图标二进制数据 |
+| category | TEXT |  | 所属分类 |
 | description | TEXT |  | 软件描述 |
 | version | TEXT |  | 软件版本 |
 | created_at | DATETIME | NOT NULL | 创建时间 |
@@ -978,7 +1030,7 @@ erDiagram
         string id PK
         string name
         string file_path
-        blob icon_data
+        string category
         string description
         string version
         datetime created_at
@@ -1319,11 +1371,12 @@ Qt Software Manager项目依赖以下第三方库和组件：
    - QtWidgets: UI组件模块
    - QtGui: 图形界面模块
    - QtSql: 数据库访问模块
+   - QtTest: 测试框架模块
 
 2. **QHotkey库**
    - 用于实现全局快捷键功能
    - 支持Windows、macOS和Linux平台
-   - 需要作为Git子模块或独立库集成
+   - 需要作为Git子模块集成
 
 3. **SQLite 3**
    - 通过QtSql模块访问
@@ -1357,15 +1410,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # 查找Qt6组件
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Sql)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Sql Test)
 
 # 启用自动MOC、RCC和UIC
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# 查找QHotkey库
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+# 添加QHotkey子模块
+add_subdirectory(QHotkey)
 
 # 包含目录
 include_directories(${CMAKE_SOURCE_DIR}/src)
@@ -1373,6 +1426,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/core)
 include_directories(${CMAKE_SOURCE_DIR}/src/model)
 include_directories(${CMAKE_SOURCE_DIR}/src/ui)
 include_directories(${CMAKE_SOURCE_DIR}/src/utils)
+include_directories(${CMAKE_SOURCE_DIR}/QHotkey)
 
 # 定义源文件
 set(SOURCES
@@ -1381,14 +1435,18 @@ set(SOURCES
     src/ui/SidebarWidget.cpp
     src/ui/SoftwareGridView.cpp
     src/ui/SoftwareListView.cpp
+    src/ui/SoftwareItemWidget.cpp
     src/ui/SearchDialog.cpp
+    src/ui/SettingsDialog.cpp
     src/core/SoftwareScanner.cpp
     src/core/CategoryManager.cpp
     src/core/SettingsManager.cpp
     src/core/SystemTrayManager.cpp
     src/core/GlobalHotkeyManager.cpp
+    src/core/DatabaseManager.cpp
     src/model/SoftwareItem.cpp
     src/utils/IconExtractor.cpp
+    src/utils/Logging.cpp
 )
 
 # 定义头文件
@@ -1397,14 +1455,18 @@ set(HEADERS
     src/ui/SidebarWidget.hpp
     src/ui/SoftwareGridView.hpp
     src/ui/SoftwareListView.hpp
+    src/ui/SoftwareItemWidget.hpp
     src/ui/SearchDialog.hpp
+    src/ui/SettingsDialog.hpp
     src/core/SoftwareScanner.hpp
     src/core/CategoryManager.hpp
     src/core/SettingsManager.hpp
     src/core/SystemTrayManager.hpp
     src/core/GlobalHotkeyManager.hpp
+    src/core/DatabaseManager.hpp
     src/model/SoftwareItem.hpp
     src/utils/IconExtractor.hpp
+    src/utils/Logging.hpp
 )
 
 # 添加资源文件
@@ -1419,17 +1481,40 @@ add_executable(QtSoftwareManager
     ${RESOURCES}
 )
 
-# 链接Qt库
+# 链接Qt库和QHotkey
 target_link_libraries(QtSoftwareManager 
     Qt6::Core 
     Qt6::Widgets 
     Qt6::Sql
+    qhotkey
 )
 
 # 设置输出目录
 set_target_properties(QtSoftwareManager PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
+
+# 创建测试可执行文件
+add_executable(TestSoftwareItem tests/TestSoftwareItem.cpp src/model/SoftwareItem.cpp src/utils/Logging.cpp)
+target_link_libraries(TestSoftwareItem Qt6::Core Qt6::Test)
+
+add_executable(TestCategoryManager tests/TestCategoryManager.cpp src/core/CategoryManager.cpp src/utils/Logging.cpp)
+target_link_libraries(TestCategoryManager Qt6::Core Qt6::Test)
+
+add_executable(TestSoftwareScanner tests/TestSoftwareScanner.cpp src/core/SoftwareScanner.cpp src/model/SoftwareItem.cpp src/utils/Logging.cpp)
+target_link_libraries(TestSoftwareScanner Qt6::Core Qt6::Test)
+
+add_executable(TestDatabaseManager tests/TestDatabaseManager.cpp src/core/DatabaseManager.cpp src/model/SoftwareItem.cpp src/utils/Logging.cpp)
+target_link_libraries(TestDatabaseManager Qt6::Core Qt6::Sql Qt6::Test)
+
+# 启用测试
+enable_testing()
+
+# 添加测试
+add_test(NAME TestSoftwareItem COMMAND TestSoftwareItem)
+add_test(NAME TestCategoryManager COMMAND TestCategoryManager)
+add_test(NAME TestSoftwareScanner COMMAND TestSoftwareScanner)
+add_test(NAME TestDatabaseManager COMMAND TestDatabaseManager)
 
 # 安装规则
 install(TARGETS QtSoftwareManager
@@ -1452,9 +1537,11 @@ graph LR
     A[QtSoftwareManager] --> B[Qt6Core]
     A --> C[Qt6Widgets]
     A --> D[Qt6Sql]
-    B --> E[C++ STL]
+    A --> E[QHotkey]
+    B --> F[C++ STL]
     C --> B
     D --> B
+    E --> B
 ```
 
 ### 10.2 跨平台支持
@@ -1621,6 +1708,7 @@ qCWarning(softwareManager) << "无法访问路径:" << path;
 - SoftwareScanner路径解析测试
 - IconExtractor图标提取功能测试
 - SettingsManager配置管理测试
+- DatabaseManager数据库操作测试
 
 #### 14.1.1 单元测试框架
 使用Qt Test框架进行单元测试：
@@ -1736,24 +1824,24 @@ graph TD
 
 ### 15.1 开发阶段划分
 1. **第一阶段**: 基础框架搭建
-   - 创建项目结构和CMakeLists.txt配置
-   - 实现基础的MainWindow和UI组件
-   - 实现SoftwareItem数据模型
+   - [x] 创建项目结构和CMakeLists.txt配置
+   - [x] 实现基础的MainWindow和UI组件
+   - [x] 实现SoftwareItem数据模型
 
 2. **第二阶段**: 核心功能开发
-   - 实现软件扫描功能(SoftwareScanner)
-   - 实现分类管理功能(CategoryManager)
-   - 实现数据库存储功能(DatabaseManager)
+   - [x] 实现软件扫描功能(SoftwareScanner)
+   - [x] 实现分类管理功能(CategoryManager)
+   - [x] 实现数据库存储功能(DatabaseManager)
 
 3. **第三阶段**: 高级功能开发
-   - 实现系统托盘功能(SystemTrayManager)
-   - 实现全局快捷键功能(GlobalHotkeyManager)
-   - 实现图标提取功能(IconExtractor)
+   - [x] 实现系统托盘功能(SystemTrayManager)
+   - [x] 实现全局快捷键功能(GlobalHotkeyManager)
+   - [x] 实现图标提取功能(IconExtractor)
 
 4. **第四阶段**: 完善与测试
-   - 完善UI交互和用户体验
-   - 实现完整的测试套件
-   - 性能优化和bug修复
+   - [x] 完善UI交互和用户体验
+   - [x] 实现完整的测试套件
+   - [x] 性能优化和bug修复
 
 ### 15.2 关键实现要点
 - 遵循Qt最佳实践，使用信号槽机制进行组件间通信

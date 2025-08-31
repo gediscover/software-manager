@@ -1,11 +1,15 @@
 #include "SearchDialog.hpp"
 #include "../model/SoftwareItem.hpp"
+#include "../core/DatabaseManager.hpp"
+#include "MainWindow.hpp"
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTimer>
+#include <QApplication>
 #include "../utils/Logging.hpp"
 
 SearchDialog::SearchDialog(QWidget* parent)
@@ -22,6 +26,20 @@ SearchDialog::SearchDialog(QWidget* parent)
     setWindowTitle("搜索软件");
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     resize(500, 400);
+    
+    // 延迟初始化数据库管理器
+    QTimer::singleShot(0, this, [this]() {
+        // 获取主窗口的数据库管理器
+        QWidget* parentWidget = this->parentWidget();
+        while (parentWidget && !parentWidget->inherits("MainWindow")) {
+            parentWidget = parentWidget->parentWidget();
+        }
+        
+        if (parentWidget) {
+            // 这里需要MainWindow提供访问数据库管理器的方法
+            // 暂时使用局部搜索
+        }
+    });
 }
 
 void SearchDialog::setSearchKeyword(const QString& keyword)
@@ -53,9 +71,15 @@ QList<SoftwareItem> SearchDialog::searchResults() const
 
 void SearchDialog::onSearchTextChanged()
 {
-    // 实时搜索功能
-    // 可以添加延迟搜索以提高性能
-    performSearch();
+    // 延迟搜索以提高性能
+    static QTimer* searchTimer = nullptr;
+    if (!searchTimer) {
+        searchTimer = new QTimer(this);
+        searchTimer->setSingleShot(true);
+        connect(searchTimer, &QTimer::timeout, this, &SearchDialog::performSearch);
+    }
+    
+    searchTimer->start(300); // 300ms延迟
 }
 
 void SearchDialog::onSearchButtonClicked()
@@ -71,8 +95,8 @@ void SearchDialog::onLaunchButtonClicked()
             QString softwareId = currentItem->data(Qt::UserRole).toString();
             qCInfo(softwareManager) << "启动软件:" << currentItem->text() << "ID:" << softwareId;
             
-            // 这里应该实现软件启动逻辑
-            // SoftwareManager::launchSoftware(softwareId);
+            // 发射信号让主窗口处理启动逻辑
+            emit softwareLaunchRequested(softwareId);
             
             // 启动成功后关闭对话框
             accept();
@@ -152,16 +176,38 @@ void SearchDialog::performSearch()
         return;
     }
     
-    // 这里应该实现实际的搜索逻辑
-    // 从软件数据库中搜索匹配的软件项
-    // 暂时使用模拟数据
+    // 获取主窗口的数据库管理器
+    MainWindow* mainWindow = nullptr;
+    QWidget* parentWidget = this->parentWidget();
+    while (parentWidget) {
+        if (MainWindow* mw = qobject_cast<MainWindow*>(parentWidget)) {
+            mainWindow = mw;
+            break;
+        }
+        parentWidget = parentWidget->parentWidget();
+    }
     
-    m_searchResults.clear();
-    
-    // 模拟搜索结果
-    // SoftwareItem item1("Example Software 1");
-    // item1.setCategory("办公软件");
-    // m_searchResults.append(item1);
+    if (mainWindow && mainWindow->databaseManager()) {
+        // 从数据库中搜索匹配的软件项
+        QList<SoftwareItem> allItems = mainWindow->databaseManager()->getAllSoftwareItems();
+        
+        // 筛选匹配的项目
+        m_searchResults.clear();
+        for (const SoftwareItem& item : allItems) {
+            if (item.getName().contains(keyword, Qt::CaseInsensitive) || 
+                item.getDescription().contains(keyword, Qt::CaseInsensitive)) {
+                m_searchResults.append(item);
+            }
+        }
+    } else {
+        // 如果无法获取数据库管理器，使用模拟数据
+        m_searchResults.clear();
+        
+        // 模拟搜索结果
+        // SoftwareItem item1("Example Software 1");
+        // item1.setCategory("办公软件");
+        // m_searchResults.append(item1);
+    }
     
     updateSearchResults();
     

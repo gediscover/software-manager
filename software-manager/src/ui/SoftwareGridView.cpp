@@ -1,8 +1,9 @@
 #include "SoftwareGridView.hpp"
-#include "SoftwareItemWidget.hpp"  // 需要创建这个类
+#include "SoftwareItemWidget.hpp"
 #include "../model/SoftwareItem.hpp"
 #include <QScrollArea>
 #include <QGridLayout>
+#include <QLayoutItem>
 #include "../utils/Logging.hpp"
 
 SoftwareGridView::SoftwareGridView(QWidget* parent)
@@ -54,6 +55,7 @@ void SoftwareGridView::updateSoftwareItem(const SoftwareItem& item)
 void SoftwareGridView::clearAllItems()
 {
     m_softwareItems.clear();
+    m_softwareWidgets.clear();
     updateLayout();
     qCInfo(softwareManager) << "清空网格视图中的所有软件项";
 }
@@ -61,6 +63,7 @@ void SoftwareGridView::clearAllItems()
 void SoftwareGridView::setSoftwareItems(const QList<SoftwareItem>& items)
 {
     m_softwareItems = items;
+    m_softwareWidgets.clear();
     updateLayout();
     qCInfo(softwareManager) << "设置网格视图软件项，共" << items.size() << "个";
 }
@@ -109,16 +112,29 @@ void SoftwareGridView::updateLayout()
         delete item;
     }
     
+    m_softwareWidgets.clear();
+    
     // 重新添加软件项
     int row = 0;
     int col = 0;
     
     for (const SoftwareItem& item : m_softwareItems) {
-        // 创建软件项控件（需要实现SoftwareItemWidget类）
-        // SoftwareItemWidget* widget = new SoftwareItemWidget(item, this);
-        // widget->setIconSize(QSize(m_iconSize, m_iconSize));
+        // 创建软件项控件
+        SoftwareItemWidget* widget = new SoftwareItemWidget(item, this);
+        widget->setIconSize(QSize(m_iconSize, m_iconSize));
         
-        // m_gridLayout->addWidget(widget, row, col);
+        // 连接信号
+        connect(widget, &SoftwareItemWidget::launchRequested, 
+                this, &SoftwareGridView::softwareItemLaunched);
+        connect(widget, &SoftwareItemWidget::removeRequested, 
+                this, &SoftwareGridView::softwareItemRemoved);
+        connect(widget, &SoftwareItemWidget::propertiesRequested, 
+                this, &SoftwareGridView::softwareItemPropertiesRequested);
+        
+        // 存储控件引用
+        m_softwareWidgets[item.getId()] = widget;
+        
+        m_gridLayout->addWidget(widget, row, col);
         
         // 更新行列位置
         col++;

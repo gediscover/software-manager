@@ -8,6 +8,7 @@
 #include "../model/SoftwareItem.hpp"
 
 class QTableWidget;
+class QTableWidgetItem;
 
 class SoftwareListView : public QWidget {
     Q_OBJECT
@@ -25,6 +26,16 @@ public:
     // 视图控制方法
     void setColumnWidth(int column, int width);
     void setSortColumn(int column, Qt::SortOrder order = Qt::AscendingOrder);
+    
+signals:
+    // 软件项操作信号
+    void softwareItemLaunched(const QString& softwareId);
+    void softwareItemRemoved(const QString& softwareId);
+    void softwareItemPropertiesRequested(const QString& softwareId);
+    
+private slots:
+    void onItemDoubleClicked(QTableWidgetItem* item);
+    void onItemRightClicked(const QPoint& pos);
     
 private:
     void setupUI();

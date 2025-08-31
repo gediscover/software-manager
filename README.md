@@ -14,6 +14,8 @@ Qt 软件管家是一款基于 Qt 6.9 框架开发的桌面应用程序，旨在
 - **全局快捷键**: 支持全局快捷键快速操作
 - **系统托盘**: 支持最小化到系统托盘后台运行
 - **数据持久化**: 使用 SQLite 数据库存储软件信息和分类关系
+- **搜索功能**: 支持快速搜索软件
+- **设置管理**: 提供丰富的设置选项
 
 ## 技术栈
 
@@ -47,8 +49,9 @@ QtSoftwareManager/
 │   │   ├── SidebarWidget.hpp/.cpp
 │   │   ├── SoftwareGridView.hpp/.cpp
 │   │   ├── SoftwareListView.hpp/.cpp
+│   │   ├── SoftwareItemWidget.hpp/.cpp
 │   │   ├── SearchDialog.hpp/.cpp
-│   │   └── SoftwareItemWidget.hpp/.cpp
+│   │   └── SettingsDialog.hpp/.cpp
 │   └── utils/
 │       ├── IconExtractor.hpp/.cpp
 ├── resources/
@@ -59,7 +62,8 @@ QtSoftwareManager/
 └── tests/
     ├── TestSoftwareItem.cpp
     ├── TestCategoryManager.cpp
-    └── TestSoftwareScanner.cpp
+    ├── TestSoftwareScanner.cpp
+    └── TestDatabaseManager.cpp
 ```
 
 ## 构建说明
@@ -78,25 +82,41 @@ git clone <repository-url>
 cd QtSoftwareManager
 ```
 
-2. 创建构建目录
+2. 初始化子模块（QHotkey库）
+```bash
+git submodule update --init --recursive
+```
+
+3. 创建构建目录
 ```bash
 mkdir build
 cd build
 ```
 
-3. 配置项目
+4. 配置项目
 ```bash
 cmake ..
 ```
 
-4. 编译项目
+5. 编译项目
 ```bash
 cmake --build .
 ```
 
-5. 运行应用程序
+6. 运行应用程序
 ```bash
 ./QtSoftwareManager
+```
+
+或者使用提供的脚本：
+```bash
+# Windows
+build.bat
+run.bat
+
+# Linux/macOS
+./build.sh
+./run.sh
 ```
 
 ## 使用说明
@@ -136,9 +156,24 @@ cmake --build .
 - [x] 实现图标提取功能(IconExtractor)
 
 ### 第四阶段: 完善与测试
-- [ ] 完善UI交互和用户体验
-- [ ] 实现完整的测试套件
-- [ ] 性能优化和bug修复
+- [x] 完善UI交互和用户体验
+- [x] 实现完整的测试套件
+- [x] 性能优化和bug修复
+
+## 测试
+
+项目包含完整的单元测试套件：
+
+- TestSoftwareItem: 测试SoftwareItem数据模型
+- TestCategoryManager: 测试分类管理功能
+- TestSoftwareScanner: 测试软件扫描功能
+- TestDatabaseManager: 测试数据库操作功能
+
+运行测试：
+```bash
+cd build
+ctest
+```
 
 ## 贡献指南
 

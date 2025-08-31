@@ -8,6 +8,7 @@
 
 class QGridLayout;
 class QScrollArea;
+class SoftwareItemWidget;
 
 class SoftwareGridView : public QWidget {
     Q_OBJECT
@@ -26,6 +27,12 @@ public:
     void setIconSize(int size);
     int iconSize() const;
     
+signals:
+    // 软件项操作信号
+    void softwareItemLaunched(const QString& softwareId);
+    void softwareItemRemoved(const QString& softwareId);
+    void softwareItemPropertiesRequested(const QString& softwareId);
+    
 private:
     void setupUI();
     void updateLayout();
@@ -35,7 +42,7 @@ private:
     QGridLayout* m_gridLayout;
     
     QList<SoftwareItem> m_softwareItems;
-    QMap<QString, QWidget*> m_softwareWidgets;
+    QMap<QString, SoftwareItemWidget*> m_softwareWidgets;
     
     int m_iconSize;
     int m_columns;

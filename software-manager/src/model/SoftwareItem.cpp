@@ -8,6 +8,7 @@
 #include <QStyle>
 #include <QPixmap>
 #include <QFileIconProvider>
+#include <QVariantMap>
 #include "../utils/Logging.hpp"
 
 SoftwareItem::SoftwareItem()
@@ -24,6 +25,32 @@ SoftwareItem::SoftwareItem(const QString& filePath)
     , m_updatedAt(QDateTime::currentDateTime())
 {
     initializeFromFilePath(filePath);
+}
+
+SoftwareItem::SoftwareItem(const QString& id, const QString& name, const QString& filePath, 
+                           const QString& category, const QString& description, 
+                           const QString& version, const QDateTime& createdAt, 
+                           const QDateTime& updatedAt)
+    : m_id(id)
+    , m_name(name)
+    , m_filePath(filePath)
+    , m_category(category)
+    , m_description(description)
+    , m_version(version)
+    , m_createdAt(createdAt)
+    , m_updatedAt(updatedAt)
+{
+    // 初始化图标
+    if (!m_filePath.isEmpty() && QFile::exists(m_filePath)) {
+        QFileInfo fileInfo(m_filePath);
+        QFileIconProvider iconProvider;
+        m_icon = iconProvider.icon(fileInfo);
+        
+        // 如果图标为空，使用默认图标
+        if (m_icon.isNull()) {
+            m_icon = QApplication::style()->standardIcon(QStyle::SP_FileIcon);
+        }
+    }
 }
 
 QString SoftwareItem::getId() const
@@ -150,4 +177,33 @@ QString SoftwareItem::extractNameFromPath(const QString& filePath) const
     }
     
     return fileInfo.fileName();
+}
+
+QVariantMap SoftwareItem::toVariantMap() const
+{
+    QVariantMap map;
+    map["id"] = m_id;
+    map["name"] = m_name;
+    map["filePath"] = m_filePath;
+    map["category"] = m_category;
+    map["description"] = m_description;
+    map["version"] = m_version;
+    map["createdAt"] = m_createdAt;
+    map["updatedAt"] = m_updatedAt;
+    return map;
+}
+
+SoftwareItem SoftwareItem::fromVariantMap(const QVariantMap& map)
+{
+    SoftwareItem item(
+        map["id"].toString(),
+        map["name"].toString(),
+        map["filePath"].toString(),
+        map["category"].toString(),
+        map["description"].toString(),
+        map["version"].toString(),
+        map["createdAt"].toDateTime(),
+        map["updatedAt"].toDateTime()
+    );
+    return item;
 }

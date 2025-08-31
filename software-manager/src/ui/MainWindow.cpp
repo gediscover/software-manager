@@ -3,10 +3,12 @@
 #include "SoftwareGridView.hpp"
 #include "SoftwareListView.hpp"
 #include "SearchDialog.hpp"
+#include "SettingsDialog.hpp"
 #include "../core/SoftwareScanner.hpp"
 #include "../core/CategoryManager.hpp"
 #include "../core/SystemTrayManager.hpp"
 #include "../core/GlobalHotkeyManager.hpp"
+#include "../core/DatabaseManager.hpp"
 #include "../model/SoftwareItem.hpp"
 #include <QToolBar>
 #include <QStatusBar>
@@ -17,6 +19,10 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QSettings>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QProcess>
+#include <QTimer>
 #include "../utils/Logging.hpp"
 
 MainWindow::MainWindow(QWidget* parent)
@@ -31,7 +37,9 @@ MainWindow::MainWindow(QWidget* parent)
     , m_categoryManager(nullptr)
     , m_trayManager(nullptr)
     , m_hotkeyManager(nullptr)
+    , m_databaseManager(nullptr)
     , m_searchDialog(nullptr)
+    , m_settingsDialog(nullptr)
 {
     setupUI();
     setupConnections();
@@ -46,6 +54,17 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置状态栏
     m_statusbar->showMessage("就绪");
     
+    // 初始化数据库管理器
+    m_databaseManager = new DatabaseManager(this);
+    m_databaseManager->initializeDatabase();
+    
+    // 首次启动时自动扫描
+    QSettings settings;
+    bool autoScan = settings.value("Scan/AutoScan", true).toBool();
+    if (autoScan) {
+        QTimer::singleShot(1000, this, &MainWindow::scanSystemSoftware);
+    }
+    
     qCInfo(softwareManager) << "主窗口初始化完成";
 }
 
@@ -57,7 +76,10 @@ MainWindow::~MainWindow()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     // 最小化到系统托盘而不是关闭
-    if (m_trayManager && m_trayManager->isTrayAvailable()) {
+    QSettings settings;
+    bool closeToTray = settings.value("Tray/CloseToTray", true).toBool();
+    
+    if (closeToTray && m_trayManager && m_trayManager->isTrayAvailable()) {
         hide();
         m_trayManager->showNotification("Qt 软件管家", "程序已在后台运行");
         event->ignore();
@@ -68,22 +90,23 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::onScanButtonClicked()
 {
-    if (m_scanner) {
-        m_scanner->scanSystemSoftware();
-        m_statusbar->showMessage("正在扫描系统软件...");
-    }
+    scanSystemSoftware();
 }
 
 void MainWindow::onAddButtonClicked()
 {
-    m_statusbar->showMessage("添加软件功能待实现");
-    // 实现手动添加软件功能
+    addSoftwareManually();
 }
 
 void MainWindow::onSettingsButtonClicked()
 {
-    m_statusbar->showMessage("设置功能待实现");
-    // 实现设置对话框
+    if (!m_settingsDialog) {
+        m_settingsDialog = new SettingsDialog(this);
+    }
+    
+    m_settingsDialog->show();
+    m_settingsDialog->raise();
+    m_settingsDialog->activateWindow();
 }
 
 void MainWindow::onCategorySelected(const QString& category)
@@ -94,13 +117,7 @@ void MainWindow::onCategorySelected(const QString& category)
 
 void MainWindow::onSearchTriggered()
 {
-    if (!m_searchDialog) {
-        m_searchDialog = new SearchDialog(this);
-    }
-    
-    m_searchDialog->show();
-    m_searchDialog->raise();
-    m_searchDialog->activateWindow();
+    showSearchDialog();
 }
 
 void MainWindow::onViewModeChanged(bool isGridMode)
@@ -131,16 +148,52 @@ void MainWindow::onShowWindowHotkeyPressed()
 
 void MainWindow::onSearchHotkeyPressed()
 {
-    onSearchTriggered();
+    showSearchDialog();
 }
 
 void MainWindow::onScanFinished(const QList<SoftwareItem>& items)
 {
-    Q_UNUSED(items)
     m_statusbar->showMessage(QString("扫描完成，发现 %1 个软件").arg(items.size()));
+    
+    // 保存扫描到的软件项到数据库
+    if (m_databaseManager) {
+        m_databaseManager->batchInsertSoftwareItems(items);
+    }
     
     // 更新软件列表显示
     updateSoftwareList();
+}
+
+void MainWindow::onSoftwareItemLaunched(const QString& softwareId)
+{
+    launchSoftware(softwareId);
+}
+
+void MainWindow::onSoftwareItemRemoved(const QString& softwareId)
+{
+    removeSoftware(softwareId);
+}
+
+void MainWindow::showSearchDialog()
+{
+    if (!m_searchDialog) {
+        m_searchDialog = new SearchDialog(this);
+        // 连接搜索对话框的信号
+        connect(m_searchDialog, &SearchDialog::softwareLaunchRequested,
+                this, &MainWindow::onSoftwareItemLaunched);
+    }
+    
+    m_searchDialog->show();
+    m_searchDialog->raise();
+    m_searchDialog->activateWindow();
+}
+
+void MainWindow::scanSystemSoftware()
+{
+    if (m_scanner) {
+        m_scanner->scanSystemSoftware();
+        m_statusbar->showMessage("正在扫描系统软件...");
+    }
 }
 
 void MainWindow::setupUI()
@@ -230,6 +283,18 @@ void MainWindow::setupConnections()
     // 连接系统托盘信号
     connect(m_trayManager, &SystemTrayManager::trayIconActivated, 
             this, &MainWindow::onTrayIconActivated);
+    
+    // 连接网格视图信号
+    connect(m_gridView, &SoftwareGridView::softwareItemLaunched,
+            this, &MainWindow::onSoftwareItemLaunched);
+    connect(m_gridView, &SoftwareGridView::softwareItemRemoved,
+            this, &MainWindow::onSoftwareItemRemoved);
+    
+    // 连接列表视图信号
+    connect(m_listView, &SoftwareListView::softwareItemLaunched,
+            this, &MainWindow::onSoftwareItemLaunched);
+    connect(m_listView, &SoftwareListView::softwareItemRemoved,
+            this, &MainWindow::onSoftwareItemRemoved);
 }
 
 void MainWindow::setupTrayIcon()
@@ -261,6 +326,16 @@ void MainWindow::loadSettings()
     if (!state.isEmpty()) {
         restoreState(state);
     }
+    
+    // 加载视图模式
+    QString viewMode = settings.value("View/Mode", "grid").toString();
+    onViewModeChanged(viewMode == "grid");
+    
+    // 加载图标大小
+    int iconSize = settings.value("View/IconSize", 64).toInt();
+    if (m_gridView) {
+        m_gridView->setIconSize(iconSize);
+    }
 }
 
 void MainWindow::saveSettings()
@@ -276,8 +351,106 @@ void MainWindow::saveSettings()
 
 void MainWindow::updateSoftwareList(const QString& category)
 {
-    Q_UNUSED(category)
-    // 更新软件列表显示
-    // 根据选择的分类过滤软件列表
-    m_statusbar->showMessage("软件列表已更新");
+    // 从数据库获取软件项
+    QList<SoftwareItem> items;
+    if (m_databaseManager) {
+        if (category.isEmpty() || category == "所有软件") {
+            items = m_databaseManager->getAllSoftwareItems();
+        } else {
+            items = m_databaseManager->getSoftwareItemsByCategory(category);
+        }
+    }
+    
+    // 更新视图
+    if (m_gridView) {
+        m_gridView->setSoftwareItems(items);
+    }
+    
+    if (m_listView) {
+        m_listView->setSoftwareItems(items);
+    }
+    
+    m_statusbar->showMessage(QString("显示 %1 个软件项").arg(items.size()));
+}
+
+void MainWindow::addSoftwareManually()
+{
+    // 打开文件选择对话框
+    QString filePath = QFileDialog::getOpenFileName(this, "选择软件文件", 
+                                                   QDir::homePath(),
+                                                   "可执行文件 (*.exe *.lnk *.app *.desktop);;所有文件 (*)");
+    
+    if (!filePath.isEmpty()) {
+        // 创建软件项
+        SoftwareItem item(filePath);
+        
+        if (item.isValid()) {
+            // 设置默认分类
+            item.setCategory("未分类");
+            
+            // 保存到数据库
+            if (m_databaseManager && m_databaseManager->addSoftwareItem(item)) {
+                // 更新显示
+                updateSoftwareList();
+                m_statusbar->showMessage(QString("成功添加软件: %1").arg(item.getName()));
+                qCInfo(softwareManager) << "手动添加软件:" << item.getName() << "路径:" << filePath;
+            } else {
+                QMessageBox::warning(this, "错误", "保存软件信息失败");
+                qCWarning(softwareManager) << "保存软件信息失败:" << filePath;
+            }
+        } else {
+            QMessageBox::warning(this, "错误", "选择的文件无效");
+            qCWarning(softwareManager) << "选择的文件无效:" << filePath;
+        }
+    }
+}
+
+void MainWindow::launchSoftware(const QString& softwareId)
+{
+    if (!m_databaseManager) {
+        return;
+    }
+    
+    SoftwareItem item = m_databaseManager->getSoftwareItemById(softwareId);
+    if (item.isValid()) {
+        QString filePath = item.getFilePath();
+        
+        // 启动软件
+        bool success = QProcess::startDetached(filePath);
+        
+        if (success) {
+            m_statusbar->showMessage(QString("启动软件: %1").arg(item.getName()));
+            qCInfo(softwareManager) << "成功启动软件:" << item.getName() << "路径:" << filePath;
+        } else {
+            m_statusbar->showMessage(QString("启动软件失败: %1").arg(item.getName()));
+            QMessageBox::warning(this, "错误", QString("无法启动软件: %1").arg(item.getName()));
+            qCWarning(softwareManager) << "启动软件失败:" << item.getName() << "路径:" << filePath;
+        }
+    }
+}
+
+void MainWindow::removeSoftware(const QString& softwareId)
+{
+    if (!m_databaseManager) {
+        return;
+    }
+    
+    // 获取软件项信息用于日志
+    SoftwareItem item = m_databaseManager->getSoftwareItemById(softwareId);
+    
+    // 从数据库删除
+    if (m_databaseManager->removeSoftwareItem(softwareId)) {
+        // 更新显示
+        updateSoftwareList();
+        m_statusbar->showMessage("软件已删除");
+        qCInfo(softwareManager) << "删除软件项:" << (item.isValid() ? item.getName() : softwareId);
+    } else {
+        QMessageBox::warning(this, "错误", "删除软件失败");
+        qCWarning(softwareManager) << "删除软件项失败:" << softwareId;
+    }
+}
+
+DatabaseManager* MainWindow::databaseManager() const
+{
+    return m_databaseManager;
 }

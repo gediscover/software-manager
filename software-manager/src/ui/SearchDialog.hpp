@@ -23,6 +23,9 @@ public:
     void setSearchResults(const QList<SoftwareItem>& results);
     QList<SoftwareItem> searchResults() const;
     
+signals:
+    void softwareLaunchRequested(const QString& softwareId);
+    
 private slots:
     void onSearchTextChanged();
     void onSearchButtonClicked();
