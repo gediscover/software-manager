@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 #include <QSystemTrayIcon>
+#include <QStackedWidget>
+#include <QToolBar>
+#include <QStatusBar>
 
 // 前置声明
 class SidebarWidget;

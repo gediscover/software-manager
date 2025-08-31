@@ -3,9 +3,7 @@
 #include "../model/SoftwareItem.hpp"
 #include <QScrollArea>
 #include <QGridLayout>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SoftwareGridView::SoftwareGridView(QWidget* parent)
     : QWidget(parent)

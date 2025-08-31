@@ -6,9 +6,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SearchDialog::SearchDialog(QWidget* parent)
     : QDialog(parent)

@@ -17,9 +17,7 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QSettings>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)

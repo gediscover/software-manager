@@ -4,9 +4,10 @@
 #include <QWidget>
 #include <QList>
 #include <QMap>
+#include <QVBoxLayout>
+#include "../model/SoftwareItem.hpp"
 
 class QTableWidget;
-class SoftwareItem;
 
 class SoftwareListView : public QWidget {
     Q_OBJECT

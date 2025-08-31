@@ -2,9 +2,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDir>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SettingsManager::SettingsManager(QObject* parent)
     : QObject(parent)

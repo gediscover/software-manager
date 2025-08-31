@@ -3,10 +3,10 @@
 
 #include <QWidget>
 #include <QIcon>
+#include "../model/SoftwareItem.hpp"
 
 class QLabel;
 class QVBoxLayout;
-class SoftwareItem;
 
 class SoftwareItemWidget : public QWidget {
     Q_OBJECT

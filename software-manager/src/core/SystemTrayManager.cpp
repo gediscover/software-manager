@@ -4,9 +4,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QStyle>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SystemTrayManager::SystemTrayManager(MainWindow* parent)
     : QObject(parent)

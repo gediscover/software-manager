@@ -2,9 +2,8 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDir>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include <QRegularExpression>
+#include "../utils/Logging.hpp"
 
 CategoryManager::CategoryManager(QObject* parent)
     : QObject(parent)
@@ -134,8 +133,8 @@ bool CategoryManager::validateCategoryName(const QString& name) const
     }
     
     // 检查是否包含非法字符
-    QRegExp invalidChars("[<>:\"/\\\\|?*]");
-    if (invalidChars.indexIn(name) != -1) {
+    QRegularExpression invalidChars(QStringLiteral("[<>:\"/\\\\|?*]"));
+    if (invalidChars.match(name).hasMatch()) {
         return false;
     }
     

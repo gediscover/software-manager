@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <QSize>
 #include <QPoint>
+#include <QMap>
 
 class SettingsManager : public QObject {
     Q_OBJECT

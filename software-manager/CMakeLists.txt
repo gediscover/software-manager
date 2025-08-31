@@ -40,6 +40,7 @@ set(SOURCES
     src/core/GlobalHotkeyManager.cpp
     src/model/SoftwareItem.cpp
     src/utils/IconExtractor.cpp
+    src/utils/Logging.cpp
 )
 
 # 定义头文件
@@ -56,6 +57,7 @@ set(HEADERS
     src/core/GlobalHotkeyManager.hpp
     src/model/SoftwareItem.hpp
     src/utils/IconExtractor.hpp
+    src/utils/Logging.hpp
 )
 
 # 添加资源文件

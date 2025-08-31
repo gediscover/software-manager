@@ -2,9 +2,7 @@
 #include "../model/SoftwareItem.hpp"
 #include <QTableWidget>
 #include <QHeaderView>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SoftwareListView::SoftwareListView(QWidget* parent)
     : QWidget(parent)

@@ -1,9 +1,7 @@
 #include <QApplication>
 #include <QLoggingCategory>
+#include "utils/Logging.hpp"
 #include "ui/MainWindow.hpp"
-
-// 定义日志类别
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
 
 int main(int argc, char *argv[])
 {

@@ -5,9 +5,7 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMessageBox>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SidebarWidget::SidebarWidget(QWidget* parent)
     : QWidget(parent)

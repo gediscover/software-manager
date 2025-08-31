@@ -5,11 +5,10 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QApplication>
+#include <QStyle>
 #include <QPixmap>
 #include <QFileIconProvider>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SoftwareItem::SoftwareItem()
     : m_id(QUuid::createUuid().toString(QUuid::WithoutBraces))

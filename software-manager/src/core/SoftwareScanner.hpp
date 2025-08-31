@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QList>
 #include <QFileInfo>
+#include "../model/SoftwareItem.hpp"
 
 class SoftwareItem;
 class ScanWorker;

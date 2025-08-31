@@ -3,9 +3,7 @@
 #include <QFileInfo>
 #include <QApplication>
 #include <QStyle>
-#include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "Logging.hpp"
 
 IconExtractor::IconExtractor(QObject* parent)
     : QObject(parent)

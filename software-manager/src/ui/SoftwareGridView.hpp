@@ -4,10 +4,10 @@
 #include <QWidget>
 #include <QList>
 #include <QMap>
+#include "../model/SoftwareItem.hpp"
 
 class QGridLayout;
 class QScrollArea;
-class SoftwareItem;
 
 class SoftwareGridView : public QWidget {
     Q_OBJECT

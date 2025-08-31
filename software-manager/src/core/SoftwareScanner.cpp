@@ -8,8 +8,7 @@
 #include <QFileIconProvider>
 #include <QMimeDatabase>
 #include <QMimeType>
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
+#include "../utils/Logging.hpp"
 
 SoftwareScanner::SoftwareScanner(QObject* parent)
     : QObject(parent)
@@ -199,8 +198,8 @@ void ScanWorker::process()
         items.append(pathItems);
         
         processedPaths++;
-        int progress = (processedPaths * 100) / totalPaths;
-        emit progress(progress);
+        int progressValue = (processedPaths * 100) / totalPaths;
+        emit progress(progressValue);
     }
     
     emit finished(items);

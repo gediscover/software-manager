@@ -1,14 +1,12 @@
 #include "GlobalHotkeyManager.hpp"
 #include "ui/MainWindow.hpp"
 #include <QSettings>
-#include <QLoggingCategory>
+#include "../utils/Logging.hpp"
 
 // 注意：这里需要QHotkey库支持
 // 由于QHotkey是一个第三方库，我们需要在项目中集成它
 // 暂时使用前向声明，实际使用时需要包含QHotkey头文件
 class QHotkey;
-
-Q_LOGGING_CATEGORY(softwareManager, "softwaremanager")
 
 GlobalHotkeyManager::GlobalHotkeyManager(MainWindow* parent)
     : QObject(parent)
