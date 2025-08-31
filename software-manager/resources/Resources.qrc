@@ -1,0 +1,14 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/app_icon.png</file>
+        <file>icons/software_icon.png</file>
+        <file>icons/category_icon.png</file>
+        <file>icons/search_icon.png</file>
+        <file>icons/scan_icon.png</file>
+        <file>icons/settings_icon.png</file>
+        <file>icons/add_icon.png</file>
+        <file>icons/remove_icon.png</file>
+        <file>icons/grid_view_icon.png</file>
+        <file>icons/list_view_icon.png</file>
+    </qresource>
+</RCC>
